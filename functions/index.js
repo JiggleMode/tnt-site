@@ -19,7 +19,7 @@ const KEY_SECRET = defineSecret("RAZORPAY_KEY_SECRET");
 const WEBHOOK_SECRET = defineSecret("RAZORPAY_WEBHOOK_SECRET");
 const opts = { region: REGION, secrets: [KEY_ID, KEY_SECRET] };
 
-const BASE_PRICE_PAISE = 10000; // ₹100 per game
+const BASE_PRICE_PAISE = 5000; // ₹50 per game
 // Launch offer. Live values are read from Firestore config/promo, so you can change
 // or switch off the offer from the admin dashboard without redeploying.
 const DEFAULT_PROMO = { active: true, percent: 20, firstPurchaseOnly: true, label: "20% off your first game" };

@@ -159,8 +159,8 @@ const boot = async () => {
   seedLinks(F, db);
 
   /* ---- approve / reject a UPI order ---- */
-  const decide = async (utr, ok) => F.runTransaction(db, async tx => {
-    const oref = F.doc(db, 'orders', utr), o = await tx.get(oref);
+  const decide = async (code, ok) => F.runTransaction(db, async tx => {
+    const oref = F.doc(db, 'orders', code), o = await tx.get(oref);
     if (!o.exists()) throw new Error('Order not found.');
     const d = o.data();
     if (d.status !== 'pending') throw new Error(`This order was already ${d.status}.`);
@@ -169,7 +169,7 @@ const boot = async () => {
     const uref = F.doc(db, 'users', d.uid), u = await tx.get(uref);
     const paise = Math.round((d.amount || 0) * 100);
     tx.update(oref, { status: 'approved', decidedAt: now, decidedBy: user.uid });
-    tx.set(F.doc(db, 'payments', utr), { uid: d.uid, gameId: d.gameId, orderId: utr, paymentId: utr, amount: paise, discountPercent: d.discountPercent || 0, source: 'upi', email: d.email || null, at: now });
+    tx.set(F.doc(db, 'payments', code), { uid: d.uid, gameId: d.gameId, orderId: code, paymentId: code, amount: paise, discountPercent: d.discountPercent || 0, source: 'upi', email: d.email || null, at: now });
     const profile = { unlocked: F.arrayUnion(d.gameId), purchases: F.increment(1), spentPaise: F.increment(paise), updatedAt: now };
     if (d.email) profile.email = d.email;
     if (d.name) profile.name = d.name;
@@ -182,17 +182,17 @@ const boot = async () => {
   if (approveId) {
     const showOrder = async (msg) => {
       const snap = await F.getDoc(F.doc(db, 'orders', approveId)).catch(() => null);
-      if (!snap || !snap.exists()) return gate(`<h2>Order not found</h2><p class="note">No order with UTR ${esc(approveId)}.</p><p><a class="b" href="admin.html">Open dashboard</a></p>`);
+      if (!snap || !snap.exists()) return gate(`<h2>Order not found</h2><p class="note">No order with code ${esc(approveId)}.</p><p><a class="b" href="admin.html">Open dashboard</a></p>`);
       const d = snap.data();
       gate(`<div class="ord"><h2>${d.status === 'pending' ? 'Approve this payment?' : 'Order ' + esc(d.status)}</h2>
-        <p class="note">Check your bank or UPI app for a payment with this UTR and amount before approving.</p>
-        <dl><dt>UTR</dt><dd>${esc(approveId)}</dd><dt>Amount</dt><dd>₹${esc(d.amount)}</dd><dt>Game</dt><dd>${esc(gname(d.gameId))}</dd>
+        <p class="note">Check your bank or UPI app for a ₹${esc(d.amount)} payment around ${when(ts(d.createdAt))}. Its note should include the order code.</p>
+        <dl><dt>Order code</dt><dd>${esc(approveId)}</dd><dt>Amount</dt><dd>₹${esc(d.amount)}</dd><dt>Game</dt><dd>${esc(gname(d.gameId))}</dd>
         <dt>Player</dt><dd>${esc(d.name || '—')}<br><span class="note">${esc(d.email || d.uid)}</span></dd><dt>Submitted</dt><dd>${when(ts(d.createdAt))}</dd>
         <dt>Status</dt><dd class="st-${esc(d.status)}">${esc(d.status)}</dd></dl>
         ${d.status === 'pending' ? '<div class="acts"><button class="pri" type="button" id="ok">Approve and unlock</button><button class="bad" type="button" id="no">Reject</button></div>' : ''}
         <p class="note" id="omsg" role="status">${esc(msg || '')}</p><p><a class="b" href="admin.html">Open dashboard</a></p></div>`);
       const act = ok => async () => {
-        if (!ok && !confirm('Reject this payment? The player will be asked to check their UTR.')) return;
+        if (!ok && !confirm('Reject this order? The player will be told their payment could not be found.')) return;
         $('ok').disabled = $('no').disabled = true; $('omsg').textContent = 'Saving…';
         try { await decide(approveId, ok); showOrder(ok ? 'Approved. The game is unlocked on their account now.' : 'Rejected.'); }
         catch (e) { $('omsg').textContent = e.message; $('ok').disabled = $('no').disabled = false; }
@@ -272,9 +272,9 @@ const boot = async () => {
     const period = $('range').selectedOptions[0].textContent.toLowerCase();
     $('app').innerHTML = `
     ${data.capped ? '<p class="note">Showing the most recent records only. Pick a shorter period for exact numbers.</p>' : ''}
-    <section class="card" style="margin-bottom:16px"><h2>Waiting for approval</h2><p class="sub">UPI payments players say they've made. Check each UTR and amount in your bank or UPI app first.</p>
-      <div class="scroll"><table class="stack"><thead><tr><th>Submitted</th><th>Player</th><th>Game</th><th class="n">Amount</th><th>UTR</th><th></th></tr></thead><tbody>
-      ${data.pendingOrders.map(o => `<tr><td data-l="Submitted">${when(ts(o.createdAt))}</td><td data-l="Player">${esc(o.name || '—')}<br><span class="note">${esc(o.email || o.uid)}</span></td><td data-l="Game">${esc(gname(o.gameId))}</td><td class="n" data-l="Amount">₹${esc(o.amount)}</td><td data-l="UTR"><code>${esc(o.id)}</code></td>
+    <section class="card" style="margin-bottom:16px"><h2>Waiting for approval</h2><p class="sub">UPI payments players say they've made. Find each one in your bank or UPI app (amount, time, and the order code in the note) first.</p>
+      <div class="scroll"><table class="stack"><thead><tr><th>Submitted</th><th>Player</th><th>Game</th><th class="n">Amount</th><th>Order code</th><th></th></tr></thead><tbody>
+      ${data.pendingOrders.map(o => `<tr><td data-l="Submitted">${when(ts(o.createdAt))}</td><td data-l="Player">${esc(o.name || '—')}<br><span class="note">${esc(o.email || o.uid)}</span></td><td data-l="Game">${esc(gname(o.gameId))}</td><td class="n" data-l="Amount">₹${esc(o.amount)}</td><td data-l="Order code"><code>${esc(o.id)}</code></td>
         <td data-l=""><a class="b" href="admin.html?approve=${encodeURIComponent(o.id)}">Review</a></td></tr>`).join('') || '<tr><td colspan="6" class="note">Nothing waiting.</td></tr>'}
       </tbody></table></div></section>
     <section class="kpis">

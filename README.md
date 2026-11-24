@@ -17,7 +17,7 @@
 
 **Buying**
 1. A player signs in and taps a game.
-2. The server works out the price. The first game is ₹80 while the launch offer is on, and later games are ₹100.
+2. The server works out the price. The first game is ₹40 while the launch offer is on, and later games are ₹50.
 3. Razorpay checkout opens with UPI, card and netbanking.
 4. The server checks Razorpay's signature and the order, then adds the game to the player's account **for good**. There is no expiry and no time limit.
 5. A Razorpay webhook acts as a backup. If the player closes the page right after paying, the game still unlocks.
@@ -42,9 +42,9 @@
 ## Payments: UPI QR with manual approval (current mode)
 
 The shop currently takes payment by UPI QR code, with no payment gateway and no Cloud Functions:
-1. The player scans the QR (generated with the right amount), pays, and types the 12-digit UTR.
-2. An order `orders/<UTR>` is saved as **pending**, and you get an email (via Web3Forms) with an **Approve** link.
-3. The link opens `admin.html?approve=<UTR>`. Check the UTR and amount in your bank or UPI app, then click **Approve and unlock**. The game appears on the player's account straight away.
+1. The player scans the QR (generated with the right amount and an order code in the payment note), pays, and taps **I've paid**.
+2. An order `orders/<code>` is saved as **pending**, and you get an email (via Web3Forms) with an **Approve** link.
+3. The link opens `admin.html?approve=<code>`. Find the payment (amount, time, order code in the note) in your bank or UPI app, then click **Approve and unlock**. The game appears on the player's account straight away.
 
 Pending orders are also listed at the top of the dashboard, in case an email goes missing.
 
@@ -108,8 +108,8 @@ If a game has no file uploaded yet, buyers are sent to its claude.ai link. That 
 4. Refresh the dashboard.
 
 ### 8. Test, then go live
-- **Test purchase:** with Razorpay test keys, buy a game and check the first one shows ₹80.
-- **Second purchase:** buy another game and check it shows ₹100.
+- **Test purchase:** with Razorpay test keys, buy a game and check the first one shows ₹40.
+- **Second purchase:** buy another game and check it shows ₹50.
 - **Tracking:** play for a few minutes, then check the session appears in the dashboard.
 - **Go live:** switch the secrets to your live keys, then run `firebase deploy --only functions`.
 

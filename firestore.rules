@@ -14,11 +14,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // UPI orders, one per UTR (the document id), so a reference number can only be claimed once.
+    // UPI orders. The document id is the order code (also put in the UPI payment note).
     // Players create their own pending order; only admins approve or reject it.
-    match /orders/{utr} {
+    match /orders/{code} {
       allow create: if signedIn()
-        && utr.matches('^[0-9]{12}$')
+        && code.matches('^TNT[A-Z0-9]{6}$')
         && request.resource.data.keys().hasOnly(['uid','gameId','amount','discountPercent','status','email','name','createdAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
