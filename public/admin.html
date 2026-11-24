@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TnT Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--aqua:#00e5e5;--ink:#04161b;--panel:#08222a;--panel2:#0c2c35;--line:rgba(255,255,255,.09);--txt:#e9fbfb;--mute:#93b9bd;--coral:#ff4d6d;--gold:#ffc94d}
+*{box-sizing:border-box;min-width:0}
+a{color:inherit}
+body{margin:0;background:var(--ink);color:var(--txt);font:15px/1.5 Tenorite,Figtree,system-ui,sans-serif}
+header{position:sticky;top:0;z-index:4;background:rgba(4,22,27,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hin{max-width:1280px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.hin h1{font-size:20px;margin:0;font-weight:900;flex:1}
+.hin h1 b{color:var(--aqua)}
+select,input,button{font:inherit;color:inherit}
+select,input[type=number],input[type=text],input[type=search]{background:var(--panel2);border:1px solid var(--line);border-radius:10px;min-height:40px;padding:0 12px;font-size:16px}
+button,.b{min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center}
+button.pri{background:var(--aqua);color:var(--ink);border:0}
+:focus-visible{outline:3px solid var(--aqua);outline-offset:2px}
+main{max-width:1280px;margin:0 auto;padding:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.kpi span{font-size:13px;color:var(--mute);font-weight:600}
+.kpi b{display:block;font-size:28px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi small{color:var(--mute);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
+.card h2{font-size:16px;margin:0 0 4px;font-weight:800}
+.card p.sub{color:var(--mute);font-size:13px;margin:0 0 14px}
+.wide{grid-column:1/-1}
+.bars{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px}
+.row .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
+.row i{display:block;height:12px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden}
+.row i b{display:block;height:100%;border-radius:6px;background:var(--k,var(--aqua))}
+.row .v{font-variant-numeric:tabular-nums;color:var(--mute);white-space:nowrap;text-align:right;min-width:64px}
+.cols{display:flex;align-items:flex-end;gap:3px;height:140px;padding-top:10px}
+.cols div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.cols b{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--aqua);min-height:2px}
+.cols span{font-size:11px;color:var(--mute)}
+.funnel .row{grid-template-columns:minmax(0,170px) minmax(0,1fr) auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:700;font-size:12px;position:sticky;top:0;background:var(--panel)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow:auto;max-height:520px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.tools input{flex:1;min-width:180px}
+.chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.07);margin:1px 2px 1px 0;white-space:nowrap}
+.promo{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end}
+.promo label{display:grid;gap:6px;font-size:13px;color:var(--mute);font-weight:600}
+.sw{display:flex!important;align-items:center;gap:10px;min-height:40px;color:var(--txt)!important}
+.sw input{width:22px;height:22px}
+.note{color:var(--mute);font-size:13px}
+.ok{color:var(--aqua)}
+.gate{min-height:70vh;display:grid;place-items:center;text-align:center}
+.gate code{background:var(--panel2);padding:4px 8px;border-radius:6px;user-select:all;overflow-wrap:anywhere}
+@media(max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}.row{grid-template-columns:minmax(0,110px) minmax(0,1fr) auto}}
+@media(max-width:600px){
+  .stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}
+  .stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}
+  .stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--mute)}
+}
+</style>
+</head>
+<body>
+<header><div class="hin">
+  <h1><b>TnT</b> Dashboard</h1>
+  <label class="note" for="range">Period</label>
+  <select id="range">
+    <option value="7">Last 7 days</option>
+    <option value="30" selected>Last 30 days</option>
+    <option value="90">Last 90 days</option>
+    <option value="3650">All time</option>
+  </select>
+  <button type="button" id="reload">Refresh</button>
+  <a class="b" href="./">Shop</a>
+</div></header>
+<main id="app"><div class="gate"><p class="note">Loading…</p></div></main>
+
+<script type="module">
+import { firebaseConfig, FIREBASE_VERSION } from "./config.js";
+import { games } from "./catalog.js";
+{
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const G = Object.fromEntries(games.map(g => [g.id, g]));
+const gname = id => (G[id] && G[id].name) || id;
+const inr = p => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const dur = s => { s = Math.round(s || 0); if (s < 60) return s + 's'; const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return h ? `${h}h ${m}m` : `${m}m`; };
+const ts = v => v && v.toDate ? v.toDate() : null;
+const when = d => d ? d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const gate = html => { $('app').innerHTML = `<div class="gate"><div>${html}</div></div>`; };
+
+const bars = (rows, fmt, color) => {
+  const max = Math.max(1, ...rows.map(r => r.v));
+  return `<div class="bars">${rows.map(r => `<div class="row" style="--k:${r.c || color || 'var(--aqua)'}"><span class="l" title="${esc(r.l)}">${esc(r.l)}</span><i><b style="width:${(r.v / max * 100).toFixed(1)}%"></b></i><span class="v">${esc(fmt(r.v))}</span></div>`).join('') || '<p class="note">No data yet.</p>'}</div>`;
+};
+const cols = (vals, labels) => {
+  const max = Math.max(1, ...vals);
+  return `<div class="cols">${vals.map((v, i) => `<div title="${esc(labels[i])}: ${v}"><b style="height:${(v / max * 100).toFixed(1)}%"></b><span>${esc(labels[i])}</span></div>`).join('')}</div>`;
+};
+const csv = (name, head, rows) => {
+  const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const blob = new Blob([[head, ...rows].map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+const boot = async () => {
+  if (!firebaseConfig.apiKey) return gate('<h2>Not set up yet</h2><p class="note">Add your Firebase config to config.js.</p>');
+  const V = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const F = Object.assign({}, ...await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${V}firebase-${m}.js`))));
+  const app = F.initializeApp(firebaseConfig), auth = F.getAuth(app), db = F.getFirestore(app);
+  const user = await new Promise(r => { const off = F.onAuthStateChanged(auth, u => { off(); r(u); }); });
+  if (!user) return gate('<h2>Sign in first</h2><p class="note">Sign in on the shop page with your admin account, then come back.</p><p><a class="b" href="./">Go to shop</a></p>');
+  const isAdmin = (await F.getDoc(F.doc(db, 'admins', user.uid)).catch(() => null))?.exists?.();
+  if (!isAdmin) return gate(`<h2>Admins only</h2><p class="note">To make this account an admin, create a Firestore document <b>admins/&lt;your id&gt;</b> in the Firebase console.<br>Your id: <code>${esc(user.uid)}</code></p>`);
+
+  let data = null;
+  const load = async () => {
+    const days = +$('range').value, since = F.Timestamp.fromMillis(Date.now() - days * 864e5);
+    $('app').innerHTML = '<div class="gate"><p class="note">Loading data…</p></div>';
+    const q = (col, field, n) => F.getDocs(F.query(F.collection(db, col), F.where(field, '>=', since), F.orderBy(field, 'desc'), F.limit(n)));
+    const [us, gs, ss, ps, es, pr] = await Promise.all([
+      F.getDocs(F.query(F.collection(db, 'users'), F.limit(5000))),
+      F.getDocs(F.collection(db, 'gameStats')),
+      q('sessions', 'startedAt', 5000), q('payments', 'at', 5000), q('events', 'at', 10000),
+      F.getDoc(F.doc(db, 'config', 'promo'))
+    ]);
+    data = {
+      users: us.docs.map(d => ({ id: d.id, ...d.data() })),
+      gameStats: Object.fromEntries(gs.docs.map(d => [d.id, d.data()])),
+      sessions: ss.docs.map(d => ({ id: d.id, ...d.data() })),
+      payments: ps.docs.map(d => ({ id: d.id, ...d.data() })),
+      events: es.docs.map(d => d.data()),
+      promo: { active: true, percent: 20, firstPurchaseOnly: true, label: '20% off your first game', ...(pr.exists() ? pr.data() : {}) },
+      days, capped: ss.size >= 5000 || es.size >= 10000
+    };
+    draw();
+  };
+
+  const draw = () => {
+    const { users, sessions, payments, events, promo } = data;
+    const U = Object.fromEntries(users.map(u => [u.id, u]));
+    const who = uid => (U[uid] && (U[uid].name || U[uid].email)) || uid.slice(0, 8);
+
+    /* sessions in period */
+    const S = sessions.map(s => {
+      const start = ts(s.startedAt), end = ts(s.endedAt) || ts(s.lastSeenAt);
+      return { ...s, start, end, wall: start && end ? Math.max(0, (end - start) / 1000) : 0 };
+    });
+    const revenue = payments.reduce((a, p) => a + (p.amount || 0), 0);
+    const discounted = payments.filter(p => p.discountPercent > 0);
+    const active = S.reduce((a, s) => a + (s.activeSeconds || 0), 0);
+    const players = new Set(S.map(s => s.uid));
+    const buyers = new Set(payments.map(p => p.uid));
+    const cnt = t => events.filter(e => e.type === t).length;
+
+    /* per game in period */
+    const per = games.map(g => {
+      const gs = S.filter(s => s.gameId === g.id), gp = payments.filter(p => p.gameId === g.id);
+      return { g, secs: gs.reduce((a, s) => a + (s.activeSeconds || 0), 0), sess: gs.length, players: new Set(gs.map(s => s.uid)).size,
+        rev: gp.reduce((a, p) => a + (p.amount || 0), 0), buys: gp.length, views: events.filter(e => e.type === 'game_view' && e.gameId === g.id).length,
+        opens: events.filter(e => e.type === 'pay_open' && e.gameId === g.id).length };
+    });
+    const byHour = Array(24).fill(0), byDay = Array(7).fill(0);
+    S.forEach(s => { if (s.start) { byHour[s.start.getHours()]++; byDay[(s.start.getDay() + 6) % 7]++; } });
+    const dev = {}; S.forEach(s => { const k = (s.device && s.device.platform) || 'Other'; dev[k] = (dev[k] || 0) + (s.activeSeconds || 0); });
+    const lens = [[0, 300, 'Under 5 min'], [300, 900, '5–15 min'], [900, 1800, '15–30 min'], [1800, 3600, '30–60 min'], [3600, 1e9, 'Over 1 hour']]
+      .map(([a, b, l]) => ({ l, v: S.filter(s => (s.activeSeconds || 0) >= a && (s.activeSeconds || 0) < b).length }));
+
+    /* players (all time totals from the users docs) */
+    const P = users.filter(u => (u.unlocked || []).length || u.totalSeconds).map(u => {
+      const st = u.stats || {}, fav = Object.entries(st).sort((a, b) => (b[1].seconds || 0) - (a[1].seconds || 0))[0];
+      return { u, owned: (u.unlocked || []).length, spent: u.spentPaise || 0, secs: u.totalSeconds || 0,
+        sess: Object.values(st).reduce((a, x) => a + (x.sessions || 0), 0), fav: fav && fav[1].seconds ? fav[0] : null, last: ts(u.lastPlayedAt) };
+    }).sort((a, b) => b.secs - a.secs);
+
+    /* cross-sell: owners of game A who also own game B */
+    const pairs = {};
+    users.forEach(u => { const o = u.unlocked || []; o.forEach(a => o.forEach(b => { if (a < b) { const k = a + '|' + b; pairs[k] = (pairs[k] || 0) + 1; } })); });
+    const topPairs = Object.entries(pairs).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ l: k.split('|').map(gname).join(' + '), v }));
+
+    const period = $('range').selectedOptions[0].textContent.toLowerCase();
+    $('app').innerHTML = `
+    ${data.capped ? '<p class="note">Showing the most recent records only. Pick a shorter period for exact numbers.</p>' : ''}
+    <section class="kpis">
+      <div class="kpi"><span>Revenue</span><b>${inr(revenue)}</b><small>${period}</small></div>
+      <div class="kpi"><span>Games sold</span><b>${payments.length}</b><small>${buyers.size} buyers</small></div>
+      <div class="kpi"><span>Launch offer used</span><b>${discounted.length}</b><small>${inr(discounted.reduce((a, p) => a + Math.round((p.amount || 0) * p.discountPercent / (100 - p.discountPercent)), 0))} given as discount</small></div>
+      <div class="kpi"><span>Play time</span><b>${dur(active)}</b><small>${players.size} players</small></div>
+      <div class="kpi"><span>Play sessions</span><b>${S.length}</b><small>avg ${dur(S.length ? active / S.length : 0)} each</small></div>
+      <div class="kpi"><span>Per player</span><b>${dur(players.size ? active / players.size : 0)}</b><small>average play time</small></div>
+    </section>
+
+    <section class="grid">
+      <div class="card"><h2>Play time by game</h2><p class="sub">Active time, ${period}. Idle and background time not counted.</p>
+        ${bars(per.filter(x => x.secs).sort((a, b) => b.secs - a.secs).map(x => ({ l: x.g.name, v: x.secs, c: x.g.c })), dur)}</div>
+      <div class="card"><h2>Revenue by game</h2><p class="sub">${period}</p>
+        ${bars(per.filter(x => x.rev).sort((a, b) => b.rev - a.rev).map(x => ({ l: x.g.name, v: x.rev, c: x.g.c })), inr)}</div>
+      <div class="card"><h2>When people play</h2><p class="sub">Sessions started, by hour of day (viewer's local time)</p>
+        ${cols(byHour, byHour.map((_, h) => h % 3 ? '' : String(h)))}</div>
+      <div class="card"><h2>Days of the week</h2><p class="sub">Sessions started</p>
+        ${cols(byDay, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])}</div>
+      <div class="card"><h2>Session length</h2><p class="sub">How long people stay per session</p>${bars(lens, v => v + ' sessions')}</div>
+      <div class="card"><h2>Devices</h2><p class="sub">Play time by platform</p>${bars(Object.entries(dev).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ l, v })), dur)}</div>
+      <div class="card funnel"><h2>Purchase funnel</h2><p class="sub">Signed-in visitors, ${period}</p>
+        ${bars([{ l: 'Saw a game', v: cnt('game_view') }, { l: 'Opened pay screen', v: cnt('pay_open') }, { l: 'Started payment', v: cnt('pay_start') }, { l: 'Paid', v: payments.length }], v => String(v), 'var(--gold)')}
+        <p class="note" style="margin:10px 0 0">Payment failures: ${cnt('pay_fail')} · closed checkout: ${cnt('pay_dismiss')}</p></div>
+      <div class="card"><h2>Often bought together</h2><p class="sub">Players who own both games (all time)</p>${bars(topPairs, v => v + ' players', 'var(--coral)')}</div>
+
+      <div class="card wide"><h2>Games at a glance</h2><p class="sub">${period}. "Interest" = pay screens opened.</p>
+        <div class="scroll"><table class="stack"><thead><tr><th>Game</th><th class="n">Players</th><th class="n">Sessions</th><th class="n">Play time</th><th class="n">Avg session</th><th class="n">Interest</th><th class="n">Sold</th><th class="n">Revenue</th></tr></thead><tbody>
+        ${per.map(x => `<tr><td data-l="Game">${esc(x.g.name)}</td><td class="n" data-l="Players">${x.players}</td><td class="n" data-l="Sessions">${x.sess}</td><td class="n" data-l="Play time">${dur(x.secs)}</td><td class="n" data-l="Avg session">${dur(x.sess ? x.secs / x.sess : 0)}</td><td class="n" data-l="Interest">${x.opens}</td><td class="n" data-l="Sold">${x.buys}</td><td class="n" data-l="Revenue">${inr(x.rev)}</td></tr>`).join('')}
+        </tbody></table></div></div>
+
+      <div class="card wide"><h2>Players</h2><p class="sub">All-time totals. Sorted by play time.</p>
+        <div class="tools"><input type="search" id="pq" placeholder="Search name or email" aria-label="Search players"><button type="button" id="pcsv">Download CSV</button></div>
+        <div class="scroll"><table class="stack"><thead><tr><th>Player</th><th>Owns</th><th class="n">Spent</th><th class="n">Play time</th><th class="n">Sessions</th><th>Favourite</th><th>Last played</th></tr></thead><tbody id="ptb"></tbody></table></div></div>
+
+      <div class="card wide"><h2>Play sessions</h2><p class="sub">Audit trail: who played what, from when to when. "Active" excludes idle time.</p>
+        <div class="tools"><input type="search" id="sq" placeholder="Search player or game" aria-label="Search sessions"><button type="button" id="scsv">Download CSV</button></div>
+        <div class="scroll"><table class="stack"><thead><tr><th>Player</th><th>Game</th><th>Started</th><th>Ended</th><th class="n">Active</th><th class="n">Total</th><th>Device</th></tr></thead><tbody id="stb"></tbody></table></div></div>
+
+      <div class="card wide"><h2>Payments</h2><p class="sub">${period}</p>
+        <div class="tools"><button type="button" id="paycsv">Download CSV</button></div>
+        <div class="scroll"><table class="stack"><thead><tr><th>When</th><th>Player</th><th>Game</th><th class="n">Amount</th><th class="n">Discount</th><th>Payment id</th></tr></thead><tbody>
+        ${payments.map(p => `<tr><td data-l="When">${when(ts(p.at))}</td><td data-l="Player">${esc(p.email || who(p.uid))}</td><td data-l="Game">${esc(gname(p.gameId))}</td><td class="n" data-l="Amount">${inr(p.amount)}</td><td class="n" data-l="Discount">${p.discountPercent ? p.discountPercent + '%' : '—'}</td><td data-l="Payment id">${esc(p.paymentId)}</td></tr>`).join('') || '<tr><td colspan="6" class="note">No payments in this period.</td></tr>'}
+        </tbody></table></div></div>
+
+      <div class="card wide"><h2>Launch offer</h2><p class="sub">Changes apply to the shop and to new orders straight away.</p>
+        <form class="promo" id="pf">
+          <label class="sw"><input type="checkbox" id="pa" ${promo.active ? 'checked' : ''}> Offer is on</label>
+          <label>Discount %<input type="number" id="pp" min="1" max="90" value="${esc(promo.percent)}" required></label>
+          <label class="sw"><input type="checkbox" id="pfirst" ${promo.firstPurchaseOnly ? 'checked' : ''}> First purchase only</label>
+          <label>Label shown to players<input type="text" id="pl" maxlength="60" value="${esc(promo.label)}"></label>
+          <div><button class="pri" type="submit">Save offer</button> <span class="note" id="pmsg" role="status"></span></div>
+        </form></div>
+    </section>`;
+
+    const pRows = q => P.filter(x => !q || [x.u.name, x.u.email].join(' ').toLowerCase().includes(q));
+    const drawP = () => { const q = $('pq').value.trim().toLowerCase(); $('ptb').innerHTML = pRows(q).map(x => `<tr>
+      <td data-l="Player"><b>${esc(x.u.name || '—')}</b><br><span class="note">${esc(x.u.email || x.u.id)}</span></td>
+      <td data-l="Owns">${(x.u.unlocked || []).map(id => `<span class="chip">${esc(gname(id))}</span>`).join('')}</td>
+      <td class="n" data-l="Spent">${inr(x.spent)}</td><td class="n" data-l="Play time">${dur(x.secs)}</td><td class="n" data-l="Sessions">${x.sess}</td>
+      <td data-l="Favourite">${x.fav ? esc(gname(x.fav)) : '—'}</td><td data-l="Last played">${when(x.last)}</td></tr>`).join('') || '<tr><td colspan="7" class="note">No players yet.</td></tr>'; };
+    const sRows = q => S.filter(s => !q || (who(s.uid) + ' ' + ((U[s.uid] || {}).email || '') + ' ' + gname(s.gameId)).toLowerCase().includes(q));
+    const drawS = () => { const q = $('sq').value.trim().toLowerCase(); $('stb').innerHTML = sRows(q).slice(0, 500).map(s => `<tr>
+      <td data-l="Player">${esc(who(s.uid))}</td><td data-l="Game">${esc(gname(s.gameId))}</td><td data-l="Started">${when(s.start)}</td>
+      <td data-l="Ended">${s.endedAt ? when(s.end) : `<span class="note">${when(s.end)} (last seen)</span>`}</td>
+      <td class="n" data-l="Active">${dur(s.activeSeconds)}</td><td class="n" data-l="Total">${dur(s.wall)}</td>
+      <td data-l="Device">${esc((s.device && s.device.platform) || '—')}</td></tr>`).join('') || '<tr><td colspan="7" class="note">No sessions in this period.</td></tr>'; };
+    drawP(); drawS();
+    $('pq').addEventListener('input', drawP); $('sq').addEventListener('input', drawS);
+
+    const iso = d => d ? d.toISOString() : '';
+    $('pcsv').addEventListener('click', () => csv('tnt-players.csv', ['name', 'email', 'uid', 'games_owned', 'spent_inr', 'play_seconds', 'sessions', 'favourite', 'last_played'],
+      pRows('').map(x => [x.u.name, x.u.email, x.u.id, (x.u.unlocked || []).map(gname).join('; '), x.spent / 100, x.secs, x.sess, x.fav ? gname(x.fav) : '', iso(x.last)])));
+    $('scsv').addEventListener('click', () => csv('tnt-sessions.csv', ['session_id', 'player', 'email', 'uid', 'game', 'started', 'ended', 'ended_cleanly', 'active_seconds', 'total_seconds', 'inputs', 'platform', 'touch', 'timezone'],
+      S.map(s => [s.id, who(s.uid), (U[s.uid] || {}).email, s.uid, gname(s.gameId), iso(s.start), iso(s.end), s.endedAt ? 'yes' : 'no', s.activeSeconds || 0, Math.round(s.wall), s.inputs || 0, s.device && s.device.platform, s.device && s.device.touch, s.tz])));
+    $('paycsv').addEventListener('click', () => csv('tnt-payments.csv', ['when', 'email', 'uid', 'game', 'amount_inr', 'discount_percent', 'payment_id', 'order_id', 'source'],
+      payments.map(p => [iso(ts(p.at)), p.email, p.uid, gname(p.gameId), (p.amount || 0) / 100, p.discountPercent || 0, p.paymentId, p.orderId, p.source])));
+
+    $('pf').addEventListener('submit', async e => {
+      e.preventDefault();
+      const next = { active: $('pa').checked, percent: Math.max(1, Math.min(90, +$('pp').value || 20)), firstPurchaseOnly: $('pfirst').checked, label: $('pl').value.trim().slice(0, 60) };
+      $('pmsg').textContent = 'Saving…';
+      try { await F.setDoc(F.doc(db, 'config', 'promo'), next); data.promo = next; $('pmsg').textContent = 'Saved.'; $('pmsg').className = 'note ok'; }
+      catch (err) { $('pmsg').textContent = 'Could not save. Check you are an admin.'; }
+    });
+  };
+
+  $('range').addEventListener('change', load);
+  $('reload').addEventListener('click', load);
+  load().catch(e => gate(`<h2>Couldn't load data</h2><p class="note">${esc(e.message)}</p><p class="note">If this mentions an index, open the link in the browser console to create it, then refresh.</p>`));
+};
+boot().catch(() => gate('<h2>Couldn\'t connect</h2><p class="note">Check your connection and refresh.</p>'));
+}
+</script>
+</body>
+</html>
