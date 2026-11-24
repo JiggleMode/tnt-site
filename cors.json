@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["https://YOUR-PROJECT-ID.web.app", "https://YOUR-PROJECT-ID.firebaseapp.com"],
+    "origin": ["https://jigglemode.github.io", "https://tnt-games-41664.web.app", "https://tnt-games-41664.firebaseapp.com"],
     "method": ["GET"],
     "maxAgeSeconds": 3600
   }
