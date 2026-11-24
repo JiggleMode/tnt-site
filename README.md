@@ -39,6 +39,19 @@
 - **Tables:** every game, every player (games owned, amount spent, play time, favourite game, last played), every **play session** (the audit trail) and every payment. Each table can be downloaded as a CSV.
 - **Launch offer controls:** switch it on or off, change the %, keep it first-purchase-only or not, and edit the label. Changes apply straight away.
 
+## Payments: UPI QR with manual approval (current mode)
+
+The shop currently takes payment by UPI QR code, with no payment gateway and no Cloud Functions:
+1. The player scans the QR (generated with the right amount), pays, and types the 12-digit UTR.
+2. An order `orders/<UTR>` is saved as **pending**, and you get an email (via Web3Forms) with an **Approve** link.
+3. The link opens `admin.html?approve=<UTR>`. Check the UTR and amount in your bank or UPI app, then click **Approve and unlock**. The game appears on the player's account straight away.
+
+Pending orders are also listed at the top of the dashboard, in case an email goes missing.
+
+**Setup:** in `public/config.js`, fill `PAYMENT.upiId` and `PAYMENT.notifyKey` (free key from web3forms.com, sent to the email you want notifications at). Publish `firestore.rules` (Firestore > Rules in the console, or `firebase deploy --only firestore`). Make yourself an admin (step 7 below). Open the dashboard once so it saves the game links.
+
+The Razorpay setup below is only needed if you switch back to automatic payments.
+
 ## Setup
 
 ### 1. Firebase

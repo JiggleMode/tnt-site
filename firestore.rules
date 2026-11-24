@@ -4,13 +4,43 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
     function owns(gameId) {
-      return gameId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('unlocked', []);
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) && gameId in get(path).data.get('unlocked', []);
     }
 
-    // Player profile + unlocks: players read their own; only the server writes.
+    // Player profile + unlocks: players read their own; only admins (approving a payment) write.
     match /users/{uid} {
       allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
-      allow write: if false;
+      allow write: if isAdmin();
+    }
+
+    // UPI orders, one per UTR (the document id), so a reference number can only be claimed once.
+    // Players create their own pending order; only admins approve or reject it.
+    match /orders/{utr} {
+      allow create: if signedIn()
+        && utr.matches('^[0-9]{12}$')
+        && request.resource.data.keys().hasOnly(['uid','gameId','amount','discountPercent','status','email','name','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.gameId is string && request.resource.data.gameId.size() < 40
+        && request.resource.data.amount is int && request.resource.data.amount > 0 && request.resource.data.amount <= 1000
+        && request.resource.data.discountPercent is int
+        && request.resource.data.email is string && request.resource.data.email.size() < 200
+        && request.resource.data.name is string && request.resource.data.name.size() < 200
+        && request.resource.data.createdAt == request.time
+        && !owns(request.resource.data.gameId);
+      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow update: if isAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','decidedAt','decidedBy']);
+      allow delete: if false;
+    }
+
+    // Play links for games not uploaded to Storage: only owners (and admins) can read them.
+    match /gameLinks/{gameId} {
+      allow read: if isAdmin() || (signedIn() && owns(gameId));
+      allow write: if isAdmin();
     }
 
     // Play sessions (audit trail). A player can start a session only for a game they own,
@@ -52,8 +82,8 @@ service cloud.firestore {
     }
 
     match /admins/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
-    match /payments/{id} { allow read: if isAdmin(); allow write: if false; }
-    match /gameStats/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /payments/{id} { allow read, write: if isAdmin(); }
+    match /gameStats/{id} { allow read, write: if isAdmin(); }
     match /{document=**} { allow read, write: if false; }
   }
 }

@@ -59,6 +59,12 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .note{color:var(--mute);font-size:13px}
 .ok{color:var(--aqua)}
 .gate{min-height:70vh;display:grid;place-items:center;text-align:center}
+.ord{display:grid;gap:6px;max-width:460px;margin:0 auto;text-align:left}
+.ord dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:10px 0 16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.ord dt{color:var(--mute)}.ord dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.acts{display:flex;gap:10px;flex-wrap:wrap}
+button.bad{background:transparent;border-color:rgba(255,77,109,.6);color:#ff8fa3}
+.st-pending{color:var(--gold)}.st-approved{color:var(--aqua)}.st-rejected{color:#ff8fa3}
 .gate code{background:var(--panel2);padding:4px 8px;border-radius:6px;user-select:all;overflow-wrap:anywhere}
 @media(max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}.row{grid-template-columns:minmax(0,110px) minmax(0,1fr) auto}}
 @media(max-width:600px){
@@ -111,15 +117,90 @@ const csv = (name, head, rows) => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 };
 
+/* Fallback links for games whose file isn't uploaded to Storage. Stored in Firestore gameLinks/<id>,
+   which only owners of that game can read. Written once from here when an admin opens the dashboard. */
+const LINKS = {
+  "wrestling": "https://claude.ai/artifact/9qCiaboUuL8ygGvvf1SYk2",
+  "katana": "https://claude.ai/artifact/Tmxdy9WAtjW3gi7BbdAcMy",
+  "mining": "https://claude.ai/artifact/MvJfdh2axT9e1r8FE1wXse",
+  "marathon": "https://claude.ai/artifact/2feTbA426dCpFfvsR2iZ7T",
+  "rally": "https://claude.ai/artifact/MfPXtAqCt659SCjS15RN32",
+  "golf": "https://claude.ai/artifact/DxhsuFoe3CSH3FZWYDQhUc",
+  "street-tour": "https://claude.ai/artifact/SqFM6e2Y4GrrCJqYZpeoz3",
+  "kick-quest": "https://claude.ai/artifact/7pkN66b9qzzrs3PWzJrfT2",
+  "goal-runner": "https://claude.ai/artifact/1fDFRZqzF3H34RjEoQ9hDR",
+  "kingdoms": "https://claude.ai/artifact/6fC5bx8V24yNqCfWoUUeCK",
+  "trick-shot": "https://claude.ai/artifact/RKmFW2DVamFqeeC3yiYkPq",
+};
+const seedLinks = async (F, db) => {
+  try {
+    const have = new Map((await F.getDocs(F.collection(db, 'gameLinks'))).docs.map(d => [d.id, d.data().url]));
+    await Promise.all(Object.entries(LINKS).filter(([id, url]) => have.get(id) !== url).map(([id, url]) => F.setDoc(F.doc(db, 'gameLinks', id), { url })));
+  } catch (e) { console.warn('Could not save game links', e); }
+};
+
 const boot = async () => {
   if (!firebaseConfig.apiKey) return gate('<h2>Not set up yet</h2><p class="note">Add your Firebase config to config.js.</p>');
   const V = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
   const F = Object.assign({}, ...await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${V}firebase-${m}.js`))));
   const app = F.initializeApp(firebaseConfig), auth = F.getAuth(app), db = F.getFirestore(app);
+  await F.getRedirectResult(auth).catch(() => {});
   const user = await new Promise(r => { const off = F.onAuthStateChanged(auth, u => { off(); r(u); }); });
-  if (!user) return gate('<h2>Sign in first</h2><p class="note">Sign in on the shop page with your admin account, then come back.</p><p><a class="b" href="./">Go to shop</a></p>');
+  if (!user) {
+    gate('<h2>Sign in</h2><p class="note">Sign in with your admin account.</p><p><button class="pri" type="button" id="gsi">Continue with Google</button></p><p class="note" id="gerr"></p>');
+    $('gsi').addEventListener('click', async () => {
+      try { await F.signInWithPopup(auth, new F.GoogleAuthProvider()); location.reload(); }
+      catch (e) { if (/popup-blocked|not-supported/.test(e.code)) return F.signInWithRedirect(auth, new F.GoogleAuthProvider()); $('gerr').textContent = e.message; }
+    });
+    return;
+  }
   const isAdmin = (await F.getDoc(F.doc(db, 'admins', user.uid)).catch(() => null))?.exists?.();
   if (!isAdmin) return gate(`<h2>Admins only</h2><p class="note">To make this account an admin, create a Firestore document <b>admins/&lt;your id&gt;</b> in the Firebase console.<br>Your id: <code>${esc(user.uid)}</code></p>`);
+  seedLinks(F, db);
+
+  /* ---- approve / reject a UPI order ---- */
+  const decide = async (utr, ok) => F.runTransaction(db, async tx => {
+    const oref = F.doc(db, 'orders', utr), o = await tx.get(oref);
+    if (!o.exists()) throw new Error('Order not found.');
+    const d = o.data();
+    if (d.status !== 'pending') throw new Error(`This order was already ${d.status}.`);
+    const now = F.serverTimestamp();
+    if (!ok) { tx.update(oref, { status: 'rejected', decidedAt: now, decidedBy: user.uid }); return d; }
+    const uref = F.doc(db, 'users', d.uid), u = await tx.get(uref);
+    const paise = Math.round((d.amount || 0) * 100);
+    tx.update(oref, { status: 'approved', decidedAt: now, decidedBy: user.uid });
+    tx.set(F.doc(db, 'payments', utr), { uid: d.uid, gameId: d.gameId, orderId: utr, paymentId: utr, amount: paise, discountPercent: d.discountPercent || 0, source: 'upi', email: d.email || null, at: now });
+    const profile = { unlocked: F.arrayUnion(d.gameId), purchases: F.increment(1), spentPaise: F.increment(paise), updatedAt: now };
+    if (d.email) profile.email = d.email;
+    if (d.name) profile.name = d.name;
+    if (!u.exists() || !u.data().firstPurchaseAt) profile.firstPurchaseAt = now;
+    tx.set(uref, profile, { merge: true });
+    tx.set(F.doc(db, 'gameStats', d.gameId), { purchases: F.increment(1), revenuePaise: F.increment(paise) }, { merge: true });
+    return d;
+  });
+  const approveId = new URLSearchParams(location.search).get('approve');
+  if (approveId) {
+    const showOrder = async (msg) => {
+      const snap = await F.getDoc(F.doc(db, 'orders', approveId)).catch(() => null);
+      if (!snap || !snap.exists()) return gate(`<h2>Order not found</h2><p class="note">No order with UTR ${esc(approveId)}.</p><p><a class="b" href="admin.html">Open dashboard</a></p>`);
+      const d = snap.data();
+      gate(`<div class="ord"><h2>${d.status === 'pending' ? 'Approve this payment?' : 'Order ' + esc(d.status)}</h2>
+        <p class="note">Check your bank or UPI app for a payment with this UTR and amount before approving.</p>
+        <dl><dt>UTR</dt><dd>${esc(approveId)}</dd><dt>Amount</dt><dd>₹${esc(d.amount)}</dd><dt>Game</dt><dd>${esc(gname(d.gameId))}</dd>
+        <dt>Player</dt><dd>${esc(d.name || '—')}<br><span class="note">${esc(d.email || d.uid)}</span></dd><dt>Submitted</dt><dd>${when(ts(d.createdAt))}</dd>
+        <dt>Status</dt><dd class="st-${esc(d.status)}">${esc(d.status)}</dd></dl>
+        ${d.status === 'pending' ? '<div class="acts"><button class="pri" type="button" id="ok">Approve and unlock</button><button class="bad" type="button" id="no">Reject</button></div>' : ''}
+        <p class="note" id="omsg" role="status">${esc(msg || '')}</p><p><a class="b" href="admin.html">Open dashboard</a></p></div>`);
+      const act = ok => async () => {
+        if (!ok && !confirm('Reject this payment? The player will be asked to check their UTR.')) return;
+        $('ok').disabled = $('no').disabled = true; $('omsg').textContent = 'Saving…';
+        try { await decide(approveId, ok); showOrder(ok ? 'Approved. The game is unlocked on their account now.' : 'Rejected.'); }
+        catch (e) { $('omsg').textContent = e.message; $('ok').disabled = $('no').disabled = false; }
+      };
+      if (d.status === 'pending') { $('ok').addEventListener('click', act(true)); $('no').addEventListener('click', act(false)); }
+    };
+    return showOrder();
+  }
 
   let data = null;
   const load = async () => {
@@ -130,14 +211,16 @@ const boot = async () => {
       F.getDocs(F.query(F.collection(db, 'users'), F.limit(5000))),
       F.getDocs(F.collection(db, 'gameStats')),
       q('sessions', 'startedAt', 5000), q('payments', 'at', 5000), q('events', 'at', 10000),
-      F.getDoc(F.doc(db, 'config', 'promo'))
+      F.getDoc(F.doc(db, 'config', 'promo')),
     ]);
+    const po = await F.getDocs(F.query(F.collection(db, 'orders'), F.where('status', '==', 'pending'), F.limit(500))).catch(() => ({ docs: [] }));
     data = {
       users: us.docs.map(d => ({ id: d.id, ...d.data() })),
       gameStats: Object.fromEntries(gs.docs.map(d => [d.id, d.data()])),
       sessions: ss.docs.map(d => ({ id: d.id, ...d.data() })),
       payments: ps.docs.map(d => ({ id: d.id, ...d.data() })),
       events: es.docs.map(d => d.data()),
+      pendingOrders: po.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (ts(a.createdAt) || 0) - (ts(b.createdAt) || 0)),
       promo: { active: true, percent: 20, firstPurchaseOnly: true, label: '20% off your first game', ...(pr.exists() ? pr.data() : {}) },
       days, capped: ss.size >= 5000 || es.size >= 10000
     };
@@ -189,6 +272,11 @@ const boot = async () => {
     const period = $('range').selectedOptions[0].textContent.toLowerCase();
     $('app').innerHTML = `
     ${data.capped ? '<p class="note">Showing the most recent records only. Pick a shorter period for exact numbers.</p>' : ''}
+    <section class="card" style="margin-bottom:16px"><h2>Waiting for approval</h2><p class="sub">UPI payments players say they've made. Check each UTR and amount in your bank or UPI app first.</p>
+      <div class="scroll"><table class="stack"><thead><tr><th>Submitted</th><th>Player</th><th>Game</th><th class="n">Amount</th><th>UTR</th><th></th></tr></thead><tbody>
+      ${data.pendingOrders.map(o => `<tr><td data-l="Submitted">${when(ts(o.createdAt))}</td><td data-l="Player">${esc(o.name || '—')}<br><span class="note">${esc(o.email || o.uid)}</span></td><td data-l="Game">${esc(gname(o.gameId))}</td><td class="n" data-l="Amount">₹${esc(o.amount)}</td><td data-l="UTR"><code>${esc(o.id)}</code></td>
+        <td data-l=""><a class="b" href="admin.html?approve=${encodeURIComponent(o.id)}">Review</a></td></tr>`).join('') || '<tr><td colspan="6" class="note">Nothing waiting.</td></tr>'}
+      </tbody></table></div></section>
     <section class="kpis">
       <div class="kpi"><span>Revenue</span><b>${inr(revenue)}</b><small>${period}</small></div>
       <div class="kpi"><span>Games sold</span><b>${payments.length}</b><small>${buyers.size} buyers</small></div>

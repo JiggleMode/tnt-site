@@ -40,7 +40,7 @@ iframe{width:100%;height:100%;border:0;display:block;background:#000}
 <div id="stage"><div class="msg"><div><div class="spin"></div><p>Loading your game…</p></div></div></div>
 
 <script type="module">
-import { firebaseConfig, REGION, FIREBASE_VERSION } from "./config.js";
+import { firebaseConfig, FIREBASE_VERSION, PAYMENT } from "./config.js";
 import { games } from "./catalog.js";
 {
 const $ = id => document.getElementById(id);
@@ -61,10 +61,10 @@ const start = async () => {
 
   const V = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
   let F;
-  try { F = Object.assign({}, ...await Promise.all(['app', 'auth', 'firestore', 'storage', 'functions'].map(m => import(`${V}firebase-${m}.js`)))); }
+  try { F = Object.assign({}, ...await Promise.all(['app', 'auth', 'firestore', 'storage'].map(m => import(`${V}firebase-${m}.js`)))); }
   catch (e) { return show('Couldn\'t connect', 'Check your internet connection and try again.', '<button class="btn" onclick="location.reload()">Try again</button>'); }
   const app = F.initializeApp(firebaseConfig);
-  const auth = F.getAuth(app), db = F.getFirestore(app), st = F.getStorage(app), fns = F.getFunctions(app, REGION);
+  const auth = F.getAuth(app), db = F.getFirestore(app);
 
   const user = await new Promise(res => { const off = F.onAuthStateChanged(auth, u => { off(); res(u); }); });
   if (!user) return show('Please sign in', `Sign in on the games page to play ${game.name}.`, '<a class="btn" href="./">Go to sign in</a>');
@@ -76,14 +76,18 @@ const start = async () => {
 
   /* load the game file (only owners can read it) */
   let html = null;
-  try { html = new TextDecoder().decode(await F.getBytes(F.ref(st, `games/${game.id}.html`), 20 * 1024 * 1024)); }
-  catch (e) {
-    if (e.code !== 'storage/object-not-found') return show('Couldn\'t load the game', 'Please try again in a moment.', '<button class="btn" onclick="location.reload()">Try again</button>');
+  if (PAYMENT.gameFilesInStorage) {
+    try { html = new TextDecoder().decode(await F.getBytes(F.ref(F.getStorage(app), `games/${game.id}.html`), 20 * 1024 * 1024)); }
+    catch (e) {
+      if (e.code !== 'storage/object-not-found') return show('Couldn\'t load the game', 'Please try again in a moment.', '<button class="btn" onclick="location.reload()">Try again</button>');
+    }
   }
   if (!html) {
     /* game file not uploaded yet: open it on its own page (play time can't be tracked there) */
     try {
-      const { data } = await F.httpsCallable(fns, 'getGameUrl')({ gameId: game.id });
+      const link = await F.getDoc(F.doc(db, 'gameLinks', game.id));
+      const data = { url: link.exists() && link.data().url };
+      if (!data.url || !/^https:\/\//.test(data.url)) throw new Error('no link');
       F.addDoc(F.collection(db, 'events'), { uid: user.uid, type: 'launch_external', gameId: game.id, at: F.serverTimestamp() }).catch(() => {});
       return show(game.name, 'This game opens on its own page.', `<a class="btn" href="${esc(data.url)}">Play ${esc(game.name)} ▶</a>`);
     } catch (e) { return show('Couldn\'t load the game', 'Please try again in a moment.', '<button class="btn" onclick="location.reload()">Try again</button>'); }

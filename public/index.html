@@ -176,7 +176,7 @@ footer p{color:var(--mute);margin:10px 0 0;max-width:46ch}
 .err{color:#ff8fa3;font-size:14px;font-weight:600;margin:10px 0 0}
 
 /* dialog */
-dialog{border:1px solid var(--line);border-radius:28px;padding:0;width:min(440px,calc(100% - 28px));background:var(--panel);color:var(--txt);box-shadow:0 40px 100px rgba(0,0,0,.5);overflow:hidden}
+dialog{border:1px solid var(--line);border-radius:28px;padding:0;width:min(440px,calc(100% - 28px));max-height:calc(100dvh - 28px);background:var(--panel);color:var(--txt);box-shadow:0 40px 100px rgba(0,0,0,.5);overflow:auto}
 dialog::backdrop{background:rgba(2,14,18,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .dart svg{display:block;width:100%;height:auto}
 .dbody{padding:22px 26px 26px}
@@ -192,6 +192,17 @@ dialog::backdrop{background:rgba(2,14,18,.72);backdrop-filter:blur(6px);-webkit-
 .dbody .btn{width:100%}
 .soon{font-weight:600;font-size:15px;background:rgba(255,201,77,.12);border:1px solid rgba(255,201,77,.35);color:var(--gold);border-radius:14px;padding:12px 14px;margin:0}
 .fine{font-size:13px;color:var(--mute);margin:14px 0 0}
+.qr{background:#fff;border-radius:18px;padding:14px;width:min(220px,100%);margin:4px auto 10px;aspect-ratio:1}
+.qr svg{display:block;width:100%;height:100%}
+.upi{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-size:14px;color:#cfe7e9;margin:0 0 14px;text-align:center}
+.upi code{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 8px;user-select:all;overflow-wrap:anywhere;color:#fff}
+.upi button{min-height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font:inherit;font-weight:700;cursor:pointer}
+.dbody .btn.ghost{color:var(--txt);box-shadow:inset 0 0 0 2px var(--line);margin-bottom:12px}
+.utr{display:grid;gap:6px;margin:6px 0 14px;font-size:14px;font-weight:700;color:#cfe7e9}
+.utr input{min-height:50px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:#fff;font:inherit;font-size:18px;letter-spacing:.06em;padding:0 14px}
+.utr span{font-weight:500;font-size:13px;color:var(--mute)}
+.wait{display:flex;gap:12px;align-items:flex-start;background:rgba(0,229,229,.08);border:1px solid rgba(0,229,229,.3);border-radius:14px;padding:12px 14px;margin:12px 0 0;font-size:14px;color:#cfe7e9}
+.wait i{flex:none;width:10px;height:10px;margin-top:6px;border-radius:50%;background:var(--aqua);animation:pulse 1.6s infinite}
 
 @media(max-width:860px){
   .hero-in,.duo,.fin{grid-template-columns:minmax(0,1fr)}
@@ -285,9 +296,9 @@ dialog::backdrop{background:rgba(2,14,18,.72);backdrop-filter:blur(6px);-webkit-
 <a class="top" id="top" href="#home" aria-label="Back to top">↑</a>
 <div id="fx" aria-hidden="true"></div>
 
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script type="module">
-import { firebaseConfig, REGION } from "./config.js";
+import { firebaseConfig, PAYMENT } from "./config.js";
 import { games } from "./catalog.js";
 {
 
@@ -324,9 +335,9 @@ const poster = g => {
 };
 
 /* ---- accounts & unlocks ---- */
-let ready = false, F = {}, auth = null, db = null, fns = null;
-const call = name => F.httpsCallable(fns, name);
-let user = null, owned = new Set(), unsub = null, pending = null, purchases = 0;
+let ready = false, F = {}, auth = null, db = null;
+let user = null, owned = new Set(), unsub = null, unsubOrders = null, pending = null, purchases = 0;
+let orders = new Map(); /* gameId -> latest order { id (UTR), status, amount } */
 /* launch offer: mirrors the server default; the live values come from Firestore config/promo */
 let promo = { active: true, percent: 20, firstPurchaseOnly: true, label: "20% off your first game" };
 const BASE = 100;
@@ -345,6 +356,7 @@ const showOffer = () => {
   if (typeof fit === 'function') fit();
 };
 const has = g => owned.has(g.id);
+const waiting = g => !has(g) && orders.get(g.id)?.status === 'pending';
 /* a game link: unlocked (and link loaded) -> straight to the game; otherwise -> sign in / pay */
 const link = (g, cls, inner, label) => {
   const lab = label ? ` aria-label="${esc(label)}"` : '';
@@ -357,14 +369,14 @@ const main = games.filter(g => !g.grp), fb = games.filter(g => g.grp);
 const card = (g, i) => `
   <article class="game" id="${g.id}" style="--k:${g.c};--k2:${g.c2}">
     ${link(g, 'art', `${poster(g)}<span class="num">${g.grp ? 'Football' : 'Game'} ${String(i + 1).padStart(2, '0')}</span>
-      <span class="lock${has(g) ? ' ok' : ''}">${lockIcon(has(g))}${has(g) ? 'Unlocked' : rs(offer().amt)}</span>`, (has(g) ? 'Play ' : 'Unlock ') + g.name)}
+      <span class="lock${has(g) ? ' ok' : ''}">${lockIcon(has(g))}${has(g) ? 'Unlocked' : waiting(g) ? 'Awaiting approval' : rs(offer().amt)}</span>`, (has(g) ? 'Play ' : 'Unlock ') + g.name)}
     <div class="txt">
       <span class="kind">${esc(g.kind)}</span>
       <h3>${esc(g.name)}</h3>
       <div class="tags">${g.tags.map(t => `<span>${esc(t)}</span>`).join('')}</div>
       ${g.p.map(p => `<p>${esc(p)}</p>`).join('')}
       <div class="meter">${g.m.map(([k, v]) => `<span>${esc(k)}</span><i><b style="--w:${v}%"></b></i>`).join('')}</div>
-      ${has(g) ? link(g, 'btn aqua', 'Play now ▶') : link(g, 'btn coral', `Unlock for ${rs(offer().amt)}`)}
+      ${has(g) ? link(g, 'btn aqua', 'Play now ▶') : waiting(g) ? link(g, 'btn ghost', 'Payment being checked…') : link(g, 'btn coral', `Unlock for ${rs(offer().amt)}`)}
     </div>
   </article>`;
 
@@ -413,23 +425,49 @@ const loginScreen = msg => {
     : `<p class="soon" style="margin-top:16px">Sign-in isn't switched on yet. Check back soon.</p>`}`;
   open();
 };
+/* ---- pay by UPI QR; you approve each order by hand ---- */
+const upiUrl = (amt, g) => 'upi://pay?' + [['pa', PAYMENT.upiId], ['pn', PAYMENT.payeeName || 'TnT Brother Games'], ['am', amt.toFixed(2)], ['cu', 'INR'], ['tn', 'TnT ' + g.name]]
+  .map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+const qrSvg = text => { try { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); } catch (e) { return ''; } };
+const isPhone = matchMedia('(pointer: coarse)').matches;
 const payScreen = g => {
   if (!user) { pending = g.id; return loginScreen(`Sign in to unlock ${g.name}.`); }
-  $('dArt').innerHTML = poster(g);
+  if (waiting(g)) return waitScreen(g, orders.get(g.id));
+  const o = offer(), url = upiUrl(o.amt, g), last = orders.get(g.id);
+  $('dArt').innerHTML = '';
   $('dBody').innerHTML = `<small>${esc(g.kind)}</small><h3 id="dTitle">${esc(g.name)}</h3>
-    ${(() => { const o = offer(); return `<div class="price"><b>${rs(o.amt)}</b>${o.pct ? `<s>${rs(BASE)}</s><span class="save">${o.pct}% off</span>` : ''}</div>
-    <p class="fine" style="margin:-6px 0 14px">One-time payment. Yours to play forever, on any device you sign in on.${o.pct ? ' ' + esc(promo.label || '') : ''}</p>`; })()}
-    <ol><li>Tap <b>Pay ${rs(offer().amt)}</b>.</li><li>Pay with UPI, card or netbanking.</li><li>The game unlocks on your account straight away.</li></ol>
-    <button class="btn coral" type="button" id="buy">Pay ${rs(offer().amt)}</button>
-    <p class="err" id="pErr" hidden></p>
+    <div class="price"><b>${rs(o.amt)}</b>${o.pct ? `<s>${rs(BASE)}</s><span class="save">${o.pct}% off</span>` : ''}</div>
+    <p class="fine" style="margin:-6px 0 14px">One-time payment. Yours to play forever, on any device you sign in on.${o.pct ? ' ' + esc(promo.label || '') : ''}</p>
+    ${!PAYMENT.upiId ? `<p class="soon">Payments aren't switched on yet. Check back soon.</p>` : `
+    <ol><li>Scan the QR code with any UPI app and pay <b>${rs(o.amt)}</b>.</li><li>Type the 12-digit UPI reference number (UTR) below.</li><li>We check the payment and unlock the game for you, usually within a few hours.</li></ol>
+    <div class="qr" role="img" aria-label="UPI QR code to pay ${rs(o.amt)}">${qrSvg(url)}</div>
+    <p class="upi">UPI ID <code>${esc(PAYMENT.upiId)}</code><button type="button" id="cpy">Copy</button></p>
+    ${isPhone ? `<a class="btn ghost" href="${esc(url)}">Open my UPI app to pay ${rs(o.amt)}</a>` : ''}
+    <form id="utrF" novalidate><label class="utr">UPI reference number (UTR)
+      <input id="utr" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="12 digits" required>
+      <span>In GPay, PhonePe or Paytm, open the payment's details to find it.</span></label>
+      <button class="btn coral" type="submit" id="buy">I've paid ${rs(o.amt)}</button></form>
+    <p class="err" id="pErr" hidden></p>`}
     <p class="fine">Signed in as ${esc(user.email || user.displayName || 'you')}.</p>`;
-  $('buy').addEventListener('click', () => buy(g));
-  logEvent('pay_open', { gameId: g.id, price: offer().amt });
+  if (PAYMENT.upiId) {
+    $('cpy').addEventListener('click', () => navigator.clipboard?.writeText(PAYMENT.upiId).then(() => { $('cpy').textContent = 'Copied'; }).catch(() => {}));
+    $('utr').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 12); });
+    $('utrF').addEventListener('submit', e => { e.preventDefault(); submitPaid(g, o); });
+    if (last && last.status === 'rejected') fail('pErr', { message: `We couldn't match your last payment (UTR ${last.id}) with a ${rs(last.amount)} payment. Check the number and try again.` });
+  }
+  logEvent('pay_open', { gameId: g.id, price: o.amt });
+  open();
+};
+const waitScreen = (g, ord) => {
+  $('dArt').innerHTML = poster(g);
+  $('dBody').innerHTML = `<small>Payment submitted</small><h3 id="dTitle">Checking your payment</h3>
+    <div class="wait"><i></i><div>We're matching UTR <b>${esc(ord.id)}</b> for <b>${rs(ord.amount)}</b> with our bank. ${esc(g.name)} unlocks on your account as soon as it's approved, usually within a few hours. You can close this page.</div></div>
+    <form method="dialog"><button class="btn aqua" style="margin-top:18px">OK</button></form>`;
   open();
 };
 const unlockedScreen = g => {
   $('dArt').innerHTML = poster(g);
-  $('dBody').innerHTML = `<small>Payment received</small><h3 id="dTitle">${esc(g.name)} is unlocked</h3>
+  $('dBody').innerHTML = `<small>Payment approved</small><h3 id="dTitle">${esc(g.name)} is unlocked</h3>
     <p class="fine" style="margin:10px 0 18px">It's saved to your account, so it works on any device where you sign in.</p>
     <button class="btn aqua" type="button" data-play="${g.id}">Play now ▶</button>`;
   open();
@@ -467,20 +505,29 @@ const V = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const startFirebase = async () => {
   if (!firebaseConfig.apiKey) return;
   try {
-    const mods = await Promise.all(['app', 'auth', 'firestore', 'functions'].map(m => import(`${V}firebase-${m}.js`)));
+    const mods = await Promise.all(['app', 'auth', 'firestore'].map(m => import(`${V}firebase-${m}.js`)));
     F = Object.assign({}, ...mods);
     const app = F.initializeApp(firebaseConfig);
-    auth = F.getAuth(app); db = F.getFirestore(app); fns = F.getFunctions(app, REGION);
+    auth = F.getAuth(app); db = F.getFirestore(app);
     ready = true;
   } catch (e) { return; }
   F.getRedirectResult(auth).catch(() => {});
   F.onAuthStateChanged(auth, u => {
-    user = u; owned = new Set(); purchases = 0;
+    user = u; owned = new Set(); purchases = 0; orders = new Map();
     if (unsub) { unsub(); unsub = null; }
+    if (unsubOrders) { unsubOrders(); unsubOrders = null; }
     if (u) {
       if (dlg.open && !pending) dlg.close();
+      let first = true;
+      unsubOrders = F.onSnapshot(F.query(F.collection(db, 'orders'), F.where('uid', '==', u.uid)), s => {
+        const m = new Map();
+        s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt?.toMillis?.() || 9e15) - (b.createdAt?.toMillis?.() || 9e15)).forEach(o => m.set(o.gameId, o));
+        orders = m; render();
+      }, () => {});
       unsub = F.onSnapshot(F.doc(db, 'users', u.uid), s => {
         const before = owned; owned = new Set((s.data() || {}).unlocked || []);
+        const fresh = first ? [] : [...owned].filter(id => !before.has(id)); first = false;
+        if (fresh.length) { const g = games.find(x => x.id === fresh[0]); if (g) setTimeout(() => unlockedScreen(g), 0); }
         purchases = (s.data() || {}).purchases || 0; showOffer();
         render(); renderAuth();
         if (before.size === 0 && pending) { const g = games.find(x => x.id === pending); pending = null; if (g && !has(g)) payScreen(g); else if (dlg.open) dlg.close(); }
@@ -491,29 +538,38 @@ const startFirebase = async () => {
   F.onSnapshot(F.doc(db, 'config', 'promo'), s => { if (s.exists()) { promo = { ...promo, ...s.data() }; render(); showOffer(); } }, () => {});
 };
 
-/* ---- pay with Razorpay; the server checks the payment and unlocks the game ---- */
-const buy = async g => {
-  const b = $('buy'), label = b.textContent; b.disabled = true; b.textContent = 'Opening payment…';
-  logEvent('pay_start', { gameId: g.id });
+/* ---- "I've paid": save the order, email the owner an approval link ---- */
+const notifyOwner = async (g, utr, amt) => {
+  if (!PAYMENT.notifyKey) return;
+  const approve = new URL('admin.html?approve=' + utr, location.href).href;
+  const r = await fetch('https://api.web3forms.com/submit', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      access_key: PAYMENT.notifyKey, from_name: 'TnT Games shop',
+      subject: `New UPI order: ${g.name} for ${rs(amt)} (UTR ${utr})`,
+      name: user.displayName || 'Player', email: user.email || undefined,
+      message: `${user.displayName || 'A player'} (${user.email || 'no email'}) says they paid ${rs(amt)} for ${g.name}.\n\nUTR: ${utr}\n\nCheck your bank or UPI app for this payment, then approve or reject it here:\n${approve}`
+    })
+  });
+  if (!r.ok) throw new Error('notify ' + r.status);
+};
+const submitPaid = async (g, o) => {
+  const utr = $('utr').value.trim(), b = $('buy');
+  if (!/^\d{12}$/.test(utr)) return fail('pErr', { message: 'The UTR is the 12-digit number in your payment details.' });
+  b.disabled = true; b.textContent = 'Sending…'; $('pErr').hidden = true;
   try {
-    if (typeof Razorpay === 'undefined') throw new Error('Payments could not load. Check your connection and try again.');
-    const { data } = await call('createOrder')({gameId: g.id});
-    const rz = new Razorpay({
-      key: data.keyId, order_id: data.orderId, amount: data.amount, currency: 'INR',
-      name: 'The TnT Brother Games', description: g.name,
-      prefill: {name: user.displayName || '', email: user.email || ''}, theme: {color: '#00b9c4'},
-      handler: async r => {
-        try {
-          await call('verifyPayment')({gameId: g.id, orderId: r.razorpay_order_id, paymentId: r.razorpay_payment_id, signature: r.razorpay_signature});
-          owned.add(g.id); render(); unlockedScreen(g);
-        } catch (e) { payScreen(g); fail('pErr', {message: 'We could not confirm your payment yet. If money left your account, it will be unlocked shortly, or contact us.'}); }
-      },
-      modal: {ondismiss: () => { b.disabled = false; b.textContent = label; logEvent('pay_dismiss', { gameId: g.id }); }}
+    await F.setDoc(F.doc(db, 'orders', utr), {
+      uid: user.uid, gameId: g.id, amount: o.amt, discountPercent: o.pct, status: 'pending',
+      email: user.email || '', name: user.displayName || '', createdAt: F.serverTimestamp()
     });
-    rz.on('payment.failed', r => { logEvent('pay_fail', { gameId: g.id, reason: String((r && r.error && r.error.reason) || '') }); payScreen(g); fail('pErr', {message: 'Payment failed. No money was taken. Please try again.'}); });
-    if (dlg.open) dlg.close();
-    rz.open();
-  } catch (e) { b.disabled = false; b.textContent = label; fail('pErr', e); }
+  } catch (e) {
+    b.disabled = false; b.textContent = `I've paid ${rs(o.amt)}`;
+    return fail('pErr', { message: e.code === 'permission-denied' ? 'That UTR has already been used. Check the number and try again.' : 'Could not send. Check your connection and try again.' });
+  }
+  logEvent('pay_submit', { gameId: g.id });
+  notifyOwner(g, utr, o.amt).catch(() => logEvent('notify_fail', { gameId: g.id }));
+  orders.set(g.id, { id: utr, status: 'pending', amount: o.amt }); render();
+  waitScreen(g, orders.get(g.id));
 };
 const play = id => { logEvent('play_click', { gameId: id }); location.href = `play.html?g=${id}`; };
 
