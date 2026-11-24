@@ -20,8 +20,8 @@ export const FIREBASE_VERSION = "10.14.1";
 // gameFilesInStorage: true once game files are uploaded to Firebase Storage (needs the Blaze plan).
 //             While false, owners are sent to each game's link from the dashboard.
 export const PAYMENT = {
-  upiId: "",
+  upiId: "9599962113@ptyes",
   payeeName: "TnT Brother Games",
-  notifyKey: "",
+  notifyKey: "fe26add8-f3bb-44ca-9b46-6819b3087a62",
   gameFilesInStorage: false
 };
